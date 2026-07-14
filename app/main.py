@@ -47,17 +47,32 @@ def home():
 
 
 # Prediction endpoint
-@app.post("/predict")
-def predict(review: Review):
+@app.post("/predict_csv")
+async def predict_csv(file: UploadFile = File(...)):
 
-   model = get_model()
+    model = get_model()
 
-   result = model(review.text)
+    df = pd.read_csv(file.file)
 
-   return {
-        "review": review.text,
-        "sentiment": result[0]["label"],
-        "confidence": round(result[0]["score"] * 100, 2)
+    sentiments = []
+    confidences = []
+
+    for review in df["reviewText"][2]:
+        result = model(str(review))
+        sentiments.append(result[0]["label"])
+        confidences.append(round(result[0]["score"] * 100, 2))
+
+    df["Sentiment"] = sentiments
+    df["Confidence"] = confidences
+
+    os.makedirs("data", exist_ok=True)
+
+    output_file = "data/predicted_reviews.csv"
+    df.to_csv(output_file, index=False)
+
+    return {
+        "message": "Prediction Completed",
+        "total_reviews": len(df)
     }
 
 @app.post("/predict_csv")
