@@ -63,18 +63,19 @@ def predict(review: Review):
 @app.post("/predict_csv")
 async def predict_csv(file: UploadFile = File(...)):
 
+    model = get_model()   # <-- Load the model if it hasn't been loaded yet
+
     df = pd.read_csv(file.file)
 
     sentiments = []
     confidences = []
 
     for review in df["reviewText"]:
-        result = classifier(str(review))
+        result = model(str(review))   # <-- Use model, not classifier
         sentiments.append(result[0]["label"])
         confidences.append(round(result[0]["score"] * 100, 2))
 
-    df["Sentiment"] = sentiments
-    df["Confidence"] = confidences
+    os.makedirs("data", exist_ok=True)
 
     output_file = "data/predicted_reviews.csv"
     df.to_csv(output_file, index=False)
