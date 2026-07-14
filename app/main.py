@@ -48,7 +48,22 @@ class Review(BaseModel):
 def home():
     return {"message": "Welcome to Sentiment Analysis API"}
 
+@app.post("/predict")
+def predict(review: Review):
 
+    model = get_model()
+
+    result = model(
+        review.text,
+        truncation=True,
+        max_length=512
+    )
+
+    return {
+        "review": review.text,
+        "sentiment": result[0]["label"],
+        "confidence": round(result[0]["score"] * 100, 2)
+    }
 # Prediction endpoint
 @app.post("/predict_csv")
 async def predict_csv(file: UploadFile = File(...)):
