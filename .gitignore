@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual Environment
+.venv/
+
+# MLflow
+mlruns/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Generated files
+classification_report.txt
+confusion_matrix.png
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
