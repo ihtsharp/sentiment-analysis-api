@@ -2,7 +2,9 @@ from fastapi import FastAPI,UploadFile, File
 from pydantic import BaseModel
 from transformers import pipeline
 import pandas as pd
+import torch
 
+torch.set_num_threads(1)
 # Create FastAPI app
 app = FastAPI(title="Sentiment Analysis API")
 
@@ -10,7 +12,10 @@ print("Loading DistilBERT model...")
 
 classifier = pipeline(
     "sentiment-analysis",
-    model="distilbert-base-uncased-finetuned-sst-2-english"
+   sentiment_model = pipeline(
+    "sentiment-analysis",
+    model="finiteautomata/bertweet-base-sentiment-analysis"
+)
 )
 
 print("Model Loaded Successfully!")
