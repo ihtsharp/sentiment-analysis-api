@@ -23,17 +23,20 @@ def get_model():
     global classifier
 
     if classifier is None:
-        print("Loading model...")
+        print("STEP 1")
+
+        from transformers import pipeline
+        print("STEP 2")
 
         classifier = pipeline(
             "sentiment-analysis",
-            model="distilbert-base-uncased-finetuned-sst-2-english"
+            model="distilbert-base-uncased-finetuned-sst-2-english",
+            device=-1
         )
 
-        print("Model loaded successfully")
+        print("STEP 3")
 
     return classifier
-
 
 # Request model
 class Review(BaseModel):
@@ -54,41 +57,26 @@ async def predict_csv(file: UploadFile = File(...)):
 
     df = pd.read_csv(file.file)
 
-    sentiments = []
-    confidences = []
-
-    for review in df["reviewText"][2]:
-        result = model(str(review))
-        sentiments.append(result[0]["label"])
-        confidences.append(round(result[0]["score"] * 100, 2))
-
-    df["Sentiment"] = sentiments
-    df["Confidence"] = confidences
-
-    os.makedirs("data", exist_ok=True)
-
-    output_file = "data/predicted_reviews.csv"
-    df.to_csv(output_file, index=False)
-
-    return {
-        "message": "Prediction Completed",
-        "total_reviews": len(df)
-    }
-
-@app.post("/predict_csv")
-async def predict_csv(file: UploadFile = File(...)):
-
-    model = get_model()   # <-- Load the model if it hasn't been loaded yet
-
-    df = pd.read_csv(file.file)
+    # Check that the CSV has the required column
+    if "reviewText" not in df.columns:
+        return {"error": "CSV must contain a 'reviewText' column"}
 
     sentiments = []
     confidences = []
 
     for review in df["reviewText"]:
-        result = model(str(review))   # <-- Use model, not classifier
+        result = model(
+            str(review),
+            truncation=True,
+            max_length=512
+        )
+
         sentiments.append(result[0]["label"])
         confidences.append(round(result[0]["score"] * 100, 2))
+
+    # ADD THESE TWO LINES
+    df["Sentiment"] = sentiments
+    df["Confidence"] = confidences
 
     os.makedirs("data", exist_ok=True)
 
@@ -100,7 +88,6 @@ async def predict_csv(file: UploadFile = File(...)):
         "total_reviews": len(df),
         "output_file": output_file
     }
-
 @app.get("/stats")
 def stats():
 
