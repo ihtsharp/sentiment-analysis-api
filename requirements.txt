@@ -1,6 +1,10 @@
 fastapi
 uvicorn
 transformers
+torch
 pandas
 numpy
 python-multipart
+sentencepiece
+safetensors
+accelerate

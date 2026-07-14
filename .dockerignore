@@ -1,6 +1,10 @@
-.venv
-__pycache__
+.venv/
+__pycache__/
+.git/
 *.pyc
-.git
-.gitignore
-.ipynb_checkpoints
+data/
+mlruns/
+.cache/
+outputs/
+notebooks/
+.vscode/

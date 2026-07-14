@@ -1,68 +1,58 @@
-from fastapi import FastAPI,UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from transformers import pipeline
 import pandas as pd
 import torch
 import os
+
+# Performance settings
 torch.set_num_threads(1)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 # Create FastAPI app
 app = FastAPI(title="Sentiment Analysis API")
-import os
-import torch
 
-torch.set_num_threads(1)
-
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-
+# Global model
 classifier = None
 
 
-from transformers import pipeline
-import traceback
-
-classifier = None
-
-def get_model():
+# Load model when application starts
+@app.on_event("startup")
+def load_model():
     global classifier
 
-    if classifier is None:
-        print("STEP 1")
+    print("Loading DistilBERT model...")
 
-        try:
-            print("STEP 2")
+    classifier = pipeline(
+        "sentiment-analysis",
+        model="distilbert-base-uncased-finetuned-sst-2-english",
+        device=-1
+    )
 
-            classifier = pipeline(
-                "sentiment-analysis",
-                model="distilbert-base-uncased-finetuned-sst-2-english"
-            )
+    print("Model loaded successfully!")
 
-            print("STEP 3")
-            print("MODEL LOADED")
 
-        except Exception as e:
-            print("ERROR OCCURRED:")
-            traceback.print_exc()
-            raise
-
-    return classifier
-# Request model
+# Request Model
 class Review(BaseModel):
     text: str
 
 
-# Home endpoint
+# Home Endpoint
 @app.get("/")
 def home():
-    return {"message": "Welcome to Sentiment Analysis API"}
+    return {
+        "message": "Welcome to Sentiment Analysis API"
+    }
 
+
+# Predict Single Review
 @app.post("/predict")
 def predict(review: Review):
 
-    model = get_model()
+    if classifier is None:
+        raise HTTPException(status_code=500, detail="Model not loaded.")
 
-    result = model(
+    result = classifier(
         review.text,
         truncation=True,
         max_length=512
@@ -74,23 +64,28 @@ def predict(review: Review):
         "confidence": round(result[0]["score"] * 100, 2)
     }
 
-# Prediction endpoint
+
+# Predict CSV
 @app.post("/predict_csv")
 async def predict_csv(file: UploadFile = File(...)):
 
-    model = get_model()
+    if classifier is None:
+        raise HTTPException(status_code=500, detail="Model not loaded.")
 
     df = pd.read_csv(file.file)
 
-    # Check that the CSV has the required column
     if "reviewText" not in df.columns:
-        return {"error": "CSV must contain a 'reviewText' column"}
+        raise HTTPException(
+            status_code=400,
+            detail="CSV must contain a 'reviewText' column."
+        )
 
     sentiments = []
     confidences = []
 
     for review in df["reviewText"]:
-        result = model(
+
+        result = classifier(
             str(review),
             truncation=True,
             max_length=512
@@ -99,7 +94,6 @@ async def predict_csv(file: UploadFile = File(...)):
         sentiments.append(result[0]["label"])
         confidences.append(round(result[0]["score"] * 100, 2))
 
-    # ADD THESE TWO LINES
     df["Sentiment"] = sentiments
     df["Confidence"] = confidences
 
@@ -113,14 +107,29 @@ async def predict_csv(file: UploadFile = File(...)):
         "total_reviews": len(df),
         "output_file": output_file
     }
+
+
+# Dataset Statistics
 @app.get("/stats")
 def stats():
 
-    df = pd.read_csv("data/predicted_reviews.csv")
+    output_file = "data/predicted_reviews.csv"
 
-    return {
+    if not os.path.exists(output_file):
+        raise HTTPException(
+            status_code=404,
+            detail="No prediction file found. Upload a CSV first."
+        )
+
+    df = pd.read_csv(output_file)
+
+    response = {
         "Total Reviews": len(df),
         "Positive": int((df["Sentiment"] == "POSITIVE").sum()),
-        "Negative": int((df["Sentiment"] == "NEGATIVE").sum()),
-        "Average Rating": round(df["overall"].mean(), 2)
+        "Negative": int((df["Sentiment"] == "NEGATIVE").sum())
     }
+
+    if "overall" in df.columns:
+        response["Average Rating"] = round(df["overall"].mean(), 2)
+
+    return response

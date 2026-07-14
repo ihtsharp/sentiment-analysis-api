@@ -6,10 +6,7 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-# Install CPU version of PyTorch
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-
-# Install remaining dependencies
+# Install dependencies, including torch from the PyTorch CPU index
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
