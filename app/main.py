@@ -19,25 +19,34 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 classifier = None
 
 
+from transformers import pipeline
+import traceback
+
+classifier = None
+
 def get_model():
     global classifier
 
     if classifier is None:
         print("STEP 1")
 
-        from transformers import pipeline
-        print("STEP 2")
+        try:
+            print("STEP 2")
 
-        classifier = pipeline(
-            "sentiment-analysis",
-            model="distilbert-base-uncased-finetuned-sst-2-english",
-            device=-1
-        )
+            classifier = pipeline(
+                "sentiment-analysis",
+                model="distilbert-base-uncased-finetuned-sst-2-english"
+            )
 
-        print("STEP 3")
+            print("STEP 3")
+            print("MODEL LOADED")
+
+        except Exception as e:
+            print("ERROR OCCURRED:")
+            traceback.print_exc()
+            raise
 
     return classifier
-
 # Request model
 class Review(BaseModel):
     text: str
@@ -64,6 +73,7 @@ def predict(review: Review):
         "sentiment": result[0]["label"],
         "confidence": round(result[0]["score"] * 100, 2)
     }
+
 # Prediction endpoint
 @app.post("/predict_csv")
 async def predict_csv(file: UploadFile = File(...)):
