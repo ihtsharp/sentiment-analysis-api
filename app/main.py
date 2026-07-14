@@ -3,22 +3,36 @@ from pydantic import BaseModel
 from transformers import pipeline
 import pandas as pd
 import torch
-
+import os
 torch.set_num_threads(1)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Create FastAPI app
 app = FastAPI(title="Sentiment Analysis API")
+import os
+import torch
 
-print("Loading DistilBERT model...")
+torch.set_num_threads(1)
 
-classifier = pipeline(
-    "sentiment-analysis",
-   sentiment_model = pipeline(
-    "sentiment-analysis",
-    model="finiteautomata/bertweet-base-sentiment-analysis"
-)
-)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-print("Model Loaded Successfully!")
+
+classifier = None
+
+
+def get_model():
+    global classifier
+
+    if classifier is None:
+        print("Loading model...")
+
+        classifier = pipeline(
+            "sentiment-analysis",
+            model="distilbert-base-uncased-finetuned-sst-2-english"
+        )
+
+        print("Model loaded successfully")
+
+    return classifier
 
 
 # Request model
@@ -36,9 +50,11 @@ def home():
 @app.post("/predict")
 def predict(review: Review):
 
-    result = classifier(review.text)
+   model = get_model()
 
-    return {
+   result = model(review.text)
+
+   return {
         "review": review.text,
         "sentiment": result[0]["label"],
         "confidence": round(result[0]["score"] * 100, 2)
